@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, onValue, set, get } from "firebase/database";
 
@@ -122,7 +122,6 @@ export default function EmotionWheel() {
   const [pwError, setPwError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
-  const pollRef = useRef(null);
 
   useEffect(() => {
     const votesRef = ref(db, DB_PATH);
