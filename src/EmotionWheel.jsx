@@ -347,7 +347,6 @@ export default function EmotionWheel() {
             {EMOTION_KEYS.map(key => {
               const em = EMOTIONS[key];
               const startA = em.angle - em.span / 2;
-              const endA = em.angle + em.span / 2;
               return em.sub.map((sub, i) => {
                 const subSpan = em.span / em.sub.length;
                 const sA = startA + i * subSpan;
