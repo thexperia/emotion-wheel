@@ -113,9 +113,17 @@ async function saveVotes(votes) {
 // ============================================================
 export default function EmotionWheel() {
   const [votes, setVotes] = useState({});
-  const [myVote, setMyVote] = useState(null);
-  const [myId] = useState(() => "user_" + Math.random().toString(36).slice(2, 9));
-  const [myColor] = useState(() => DOT_COLORS[Math.floor(Math.random() * DOT_COLORS.length)]);
+  const [myVote, setMyVote] = useState(() => localStorage.getItem("ew_myVote") || null);
+  const [myId] = useState(() => {
+    let id = localStorage.getItem("ew_myId");
+    if (!id) { id = "user_" + Math.random().toString(36).slice(2, 9); localStorage.setItem("ew_myId", id); }
+    return id;
+  });
+  const [myColor] = useState(() => {
+    let color = localStorage.getItem("ew_myColor");
+    if (!color) { color = DOT_COLORS[Math.floor(Math.random() * DOT_COLORS.length)]; localStorage.setItem("ew_myColor", color); }
+    return color;
+  });
   const [selected, setSelected] = useState(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [pwInput, setPwInput] = useState("");
@@ -151,6 +159,7 @@ export default function EmotionWheel() {
 
     if (myVote === key) {
       setMyVote(null);
+      localStorage.removeItem("ew_myVote");
       await saveVotes(fresh);
       setVotes({ ...fresh });
       showToast("Pilihan dicabut");
@@ -160,6 +169,7 @@ export default function EmotionWheel() {
     if (!fresh[key]) fresh[key] = [];
     fresh[key].push({ id: myId, color: myColor });
     setMyVote(key);
+    localStorage.setItem("ew_myVote", key);
     await saveVotes(fresh);
     setVotes({ ...fresh });
     showToast(`Kamu memilih: ${subLabel}`);
@@ -170,6 +180,7 @@ export default function EmotionWheel() {
       await saveVotes({});
       setVotes({});
       setMyVote(null);
+      localStorage.removeItem("ew_myVote");
       setPwInput("");
       setShowAdmin(false);
       setPwError(false);
