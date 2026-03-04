@@ -1,4 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { initializeApp } from "firebase/app";
+import { getDatabase, ref, onValue, set, get } from "firebase/database";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBPOJDDStveJFvI67HPUiKeJxFjikRGzVI",
+  authDomain: "emotion-wheel-915ef.firebaseapp.com",
+  databaseURL: "https://emotion-wheel-915ef-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "emotion-wheel-915ef",
+  storageBucket: "emotion-wheel-915ef.firebasestorage.app",
+  messagingSenderId: "603588267453",
+  appId: "1:603588267453:web:ff409fef9b2ac75af516d4"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
 // ============================================================
 // DATA EMOSI (Bahasa Indonesia)
@@ -76,20 +91,20 @@ function dotPosition(cx, cy, startAngle, endAngle, index, total) {
 }
 
 // ============================================================
-// STORAGE
+// FIREBASE STORAGE
 // ============================================================
-const STORAGE_KEY = "emotionwheel-votes-v1";
+const DB_PATH = "votes";
 
 async function loadVotes() {
   try {
-    const res = await window.storage.get(STORAGE_KEY, true);
-    return res ? JSON.parse(res.value) : {};
+    const snapshot = await get(ref(db, DB_PATH));
+    return snapshot.exists() ? snapshot.val() : {};
   } catch { return {}; }
 }
 
 async function saveVotes(votes) {
   try {
-    await window.storage.set(STORAGE_KEY, JSON.stringify(votes), true);
+    await set(ref(db, DB_PATH), votes);
   } catch (e) { console.error(e); }
 }
 
@@ -110,11 +125,13 @@ export default function EmotionWheel() {
   const pollRef = useRef(null);
 
   useEffect(() => {
-    loadVotes().then(v => { setVotes(v); setLoading(false); });
-    pollRef.current = setInterval(() => {
-      loadVotes().then(v => setVotes(v));
-    }, 5000);
-    return () => clearInterval(pollRef.current);
+    const votesRef = ref(db, DB_PATH);
+    const unsubscribe = onValue(votesRef, (snapshot) => {
+      const data = snapshot.exists() ? snapshot.val() : {};
+      setVotes(data);
+      setLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
   function showToast(msg) {
