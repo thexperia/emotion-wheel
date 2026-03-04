@@ -247,7 +247,6 @@ export default function EmotionWheel() {
             {EMOTION_KEYS.map(key => {
               const em = EMOTIONS[key];
               const startA = em.angle - em.span / 2;
-              const endA = em.angle + em.span / 2;
               const isSelected = selected === key;
 
               return (
@@ -255,7 +254,7 @@ export default function EmotionWheel() {
                   {/* Inner sector */}
                   <path
                     className="sec"
-                    d={arc(CX, CY, INNER_R + 2, MID_R - 2, startA, endA)}
+                    d={arc(CX, CY, INNER_R + 2, MID_R - 2, startA, em.angle + em.span / 2)}
                     fill={em.color} stroke="white" strokeWidth={3}
                     opacity={selected && !isSelected ? 0.5 : 1}
                     onClick={() => setSelected(selected === key ? null : key)}
@@ -320,7 +319,7 @@ export default function EmotionWheel() {
 
                   {/* Inner label */}
                   {(() => {
-                    const mid = (startA + endA) / 2;
+                    const mid = (startA + em.angle + em.span / 2) / 2;
                     const r = (INNER_R + MID_R) / 2;
                     const rad = ((mid - 90) * Math.PI) / 180;
                     const tx = CX + r * Math.cos(rad), ty = CY + r * Math.sin(rad);
