@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, onValue, set, get, push } from "firebase/database";
+import { getDatabase, ref, onValue, set, get } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBPOJDDStveJFvI67HPUiKeJxFjikRGzVI",
