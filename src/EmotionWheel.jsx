@@ -291,6 +291,9 @@ export default function EmotionWheel() {
 
       {/* HEADER */}
       <div style={{ textAlign: "center", marginBottom: 20 }}>
+        <p style={{ fontFamily: "'Nunito',sans-serif", fontSize: "clamp(10px,2vw,13px)", fontWeight: 700, color: "#a89cc0", margin: "0 0 4px", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+          TIMOHO x On Duty
+        </p>
         <h1 style={{ fontFamily: "'Baloo 2',cursive", fontSize: "clamp(18px,3.5vw,28px)", fontWeight: 800, color: "#3d2c5e", margin: 0 }}>
           D'Specialist Emotional Spectrum
         </h1>
@@ -300,9 +303,7 @@ export default function EmotionWheel() {
         <p style={{ color: "#b0a8c0", fontSize: 11, margin: "4px auto 0", maxWidth: 480, lineHeight: 1.5, fontStyle: "italic" }}>
           Data bersifat anonim — admin ataupun user tidak memiliki akses terhadap sumber data.
         </p>
-        <p style={{ color: "#b0a8c0", fontSize: 11, margin: "6px auto 0", maxWidth: 480, lineHeight: 1.5, fontStyle: "italic" }}>
-          Menggunakan kombinasi teori Paul Ekman (6 Basic Emotions, 1970) dan Gloria Willcox (Feelings Wheel, 1982), diadaptasi untuk konteks lingkungan kerja.
-        </p>
+
         <p style={{ color: "#a0a0a0", fontSize: 13, margin: "6px 0 0" }}>
           Total responden: <strong style={{ color: "#5B5B9E" }}>{totalVotes} pegawai</strong>
           {myVote && <span style={{ color: "#059669", marginLeft: 10 }}>• Kamu sudah memilih ✓</span>}
@@ -485,7 +486,12 @@ export default function EmotionWheel() {
       </div>
 
       <p style={{ color:"#7a6b9a", fontSize:13, marginTop:14, textAlign:"center", fontWeight:600 }}>
-        👆 Klik sektor emosi untuk memilih · Klik lagi untuk membatalkan
+        👆 Klik emosi untuk memilih · Klik lagi untuk membatalkan
+      </p>
+
+      {/* SCIENTIFIC NOTE */}
+      <p style={{ color: "#b0a8c0", fontSize: 11, marginTop: 6, textAlign: "center", maxWidth: 480, lineHeight: 1.5, fontStyle: "italic" }}>
+        Menggunakan kombinasi teori Paul Ekman (6 Basic Emotions, 1970) dan Gloria Willcox (Feelings Wheel, 1982), diadaptasi untuk konteks lingkungan kerja.
       </p>
 
       {/* TOMBOL ADMIN DROPDOWN */}
