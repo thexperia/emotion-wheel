@@ -149,6 +149,8 @@ export default function EmotionWheel() {
   });
   const [selected, setSelected] = useState(null);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showAdminDropdown, setShowAdminDropdown] = useState(false);
+  const [adminAction, setAdminAction] = useState("save");
   const [pwInput, setPwInput] = useState("");
   const [pwError, setPwError] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -208,8 +210,6 @@ export default function EmotionWheel() {
 
   async function handleReset() {
     if (pwInput === ADMIN_PASSWORD) {
-      const current = await loadVotes();
-      if (Object.keys(current).length > 0) await saveSnapshot(current);
       await saveVotes({});
       setVotes({});
       setMyVote(null);
@@ -217,7 +217,45 @@ export default function EmotionWheel() {
       setPwInput("");
       setShowAdmin(false);
       setPwError(false);
-      showToast("✅ Data direset & snapshot tersimpan!");
+      showToast("✅ Data voting berhasil direset!");
+    } else {
+      setPwError(true);
+    }
+  }
+
+  async function handleSave() {
+    if (pwInput === ADMIN_PASSWORD) {
+      const current = await loadVotes();
+      if (Object.keys(current).length === 0) {
+        showToast("⚠️ Tidak ada data untuk disimpan!");
+        return;
+      }
+      await saveSnapshot(current);
+      setPwInput("");
+      setShowAdmin(false);
+      setPwError(false);
+      showToast("✅ Data berhasil disimpan ke dashboard!");
+    } else {
+      setPwError(true);
+    }
+  }
+
+  async function handleSaveAndReset() {
+    if (pwInput === ADMIN_PASSWORD) {
+      const current = await loadVotes();
+      if (Object.keys(current).length === 0) {
+        showToast("⚠️ Tidak ada data untuk disimpan!");
+        return;
+      }
+      await saveSnapshot(current);
+      await saveVotes({});
+      setVotes({});
+      setMyVote(null);
+      localStorage.removeItem("ew_myVote");
+      setPwInput("");
+      setShowAdmin(false);
+      setPwError(false);
+      showToast("✅ Data disimpan & voting direset!");
     } else {
       setPwError(true);
     }
@@ -257,16 +295,14 @@ export default function EmotionWheel() {
           D'Specialist Emotional Spectrum
         </h1>
         <p style={{ color: "#7a6b9a", fontSize: 13, margin: "8px auto 0", fontWeight: 500, maxWidth: 500, lineHeight: 1.6 }}>
-          Yth Bapak/Ibu D'Specialist, silahkan pilih emosi yang paling menggambarkan perasaan Anda minggu ini.
+          Yth Bapak/Ibu D'Specialist, silahkan pilih emosi yang paling menggambarkan perasaan Anda.
         </p>
         <p style={{ color: "#b0a8c0", fontSize: 11, margin: "4px auto 0", maxWidth: 480, lineHeight: 1.5, fontStyle: "italic" }}>
           Data bersifat anonim — admin ataupun user tidak memiliki akses terhadap sumber data.
         </p>
-        <div style={{ marginTop: 10, padding: "8px 16px", borderRadius: 12, background: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.07)", border: "1px solid #E5E7EB", display: "inline-block" }}>
-          <p style={{ margin: 0, fontSize: 11, color: "#6B7280", lineHeight: 1.6 }}>
-            📚 <strong style={{ color: "#4F46E5" }}>Dasar Ilmiah:</strong> Spektrum emosi ini menggunakan kombinasi teori <strong>Paul Ekman</strong> (6 Basic Emotions, 1970) dan <strong>Gloria Willcox</strong> (Feelings Wheel, 1982), diadaptasi untuk konteks lingkungan kerja.
-          </p>
-        </div>
+        <p style={{ color: "#b0a8c0", fontSize: 11, margin: "6px auto 0", maxWidth: 480, lineHeight: 1.5, fontStyle: "italic" }}>
+          Menggunakan kombinasi teori Paul Ekman (6 Basic Emotions, 1970) dan Gloria Willcox (Feelings Wheel, 1982), diadaptasi untuk konteks lingkungan kerja.
+        </p>
         <p style={{ color: "#a0a0a0", fontSize: 13, margin: "6px 0 0" }}>
           Total responden: <strong style={{ color: "#5B5B9E" }}>{totalVotes} pegawai</strong>
           {myVote && <span style={{ color: "#059669", marginLeft: 10 }}>• Kamu sudah memilih ✓</span>}
@@ -452,29 +488,53 @@ export default function EmotionWheel() {
         👆 Klik sektor emosi untuk memilih · Klik lagi untuk membatalkan
       </p>
 
-      {/* TOMBOL ADMIN */}
-      <button className="btn" onClick={() => setShowAdmin(true)} style={{
-        marginTop: 20, padding: "10px 22px", borderRadius: 24,
-        background: "white", color: "#6B7280", fontWeight: 700, fontSize: 13,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "2px solid #E5E7EB",
-      }}>
-        🔐 Reset Data (Admin)
-      </button>
+      {/* TOMBOL ADMIN DROPDOWN */}
+      <div style={{ position: "relative", marginTop: 20 }}>
+        <button className="btn" onClick={() => setShowAdminDropdown(d => !d)} style={{
+          padding: "10px 22px", borderRadius: 24,
+          background: "white", color: "#6B7280", fontWeight: 700, fontSize: 13,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "2px solid #E5E7EB",
+        }}>
+          🔐 Panel Admin {showAdminDropdown ? "▲" : "▼"}
+        </button>
+        {showAdminDropdown && (
+          <div style={{
+            position: "absolute", top: "110%", left: "50%", transform: "translateX(-50%)",
+            background: "white", borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
+            border: "1px solid #E5E7EB", overflow: "hidden", zIndex: 50, minWidth: 220,
+          }}>
+            <button className="btn" onClick={() => { setShowAdminDropdown(false); setAdminAction("save"); setShowAdmin(true); }} style={{
+              width: "100%", padding: "12px 18px", textAlign: "left", fontSize: 13, fontWeight: 700,
+              background: "white", color: "#4F46E5", borderBottom: "1px solid #F3F4F6",
+            }}>💾 Simpan Data ke Dashboard</button>
+            <button className="btn" onClick={() => { setShowAdminDropdown(false); setAdminAction("saveReset"); setShowAdmin(true); }} style={{
+              width: "100%", padding: "12px 18px", textAlign: "left", fontSize: 13, fontWeight: 700,
+              background: "white", color: "#7C3AED", borderBottom: "1px solid #F3F4F6",
+            }}>💾🗑️ Simpan & Reset Voting</button>
+            <button className="btn" onClick={() => { setShowAdminDropdown(false); setAdminAction("reset"); setShowAdmin(true); }} style={{
+              width: "100%", padding: "12px 18px", textAlign: "left", fontSize: 13, fontWeight: 700,
+              background: "white", color: "#EF4444",
+            }}>🗑️ Reset Data Voting</button>
+          </div>
+        )}
+      </div>
 
       {/* MODAL ADMIN */}
       {showAdmin && (
         <div className="modal-bg" onClick={() => { setShowAdmin(false); setPwInput(""); setPwError(false); }}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin:"0 0 8px", color:"#3d2c5e", fontFamily:"'Baloo 2',cursive" }}>🔐 Reset Data Admin</h3>
-            <p style={{ color:"#6B7280", fontSize:14, margin:"0 0 16px" }}>
-              Masukkan password admin untuk menghapus semua pilihan pegawai minggu ini.
+            <h3 style={{ margin:"0 0 8px", color:"#3d2c5e", fontFamily:"'Baloo 2',cursive" }}>
+              {adminAction === "save" ? "💾 Simpan Data" : adminAction === "saveReset" ? "💾🗑️ Simpan & Reset" : "🗑️ Reset Voting"}
+            </h3>
+            <p style={{ color:"#6B7280", fontSize:13, margin:"0 0 16px" }}>
+              {adminAction === "save" ? "Data voting akan disimpan ke dashboard." : adminAction === "saveReset" ? "Data voting akan disimpan ke dashboard, lalu voting direset." : "Semua data voting akan dihapus (tidak tersimpan)."}
             </p>
             <input
               type="password"
               placeholder="Password admin..."
               value={pwInput}
               onChange={e => { setPwInput(e.target.value); setPwError(false); }}
-              onKeyDown={e => e.key === "Enter" && handleReset()}
+              onKeyDown={e => e.key === "Enter" && (adminAction === "save" ? handleSave() : adminAction === "saveReset" ? handleSaveAndReset() : handleReset())}
               style={{
                 width:"100%", padding:"10px 14px", borderRadius:10, fontSize:15,
                 border:`2px solid ${pwError ? "#EF4444" : "#E5E7EB"}`,
@@ -483,10 +543,10 @@ export default function EmotionWheel() {
             />
             {pwError && <p style={{ color:"#EF4444", fontSize:13, margin:"6px 0 0" }}>❌ Password salah</p>}
             <div style={{ display:"flex", gap:10, marginTop:16 }}>
-              <button className="btn" onClick={handleReset} style={{
-                flex:1, padding:"10px", borderRadius:12,
-                background:"#EF4444", color:"white", fontWeight:700, fontSize:14,
-              }}>Reset Sekarang</button>
+              <button className="btn" onClick={adminAction === "save" ? handleSave : adminAction === "saveReset" ? handleSaveAndReset : handleReset} style={{
+                flex:1, padding:"10px", borderRadius:12, fontWeight:700, fontSize:14, color:"white",
+                background: adminAction === "save" ? "#4F46E5" : adminAction === "saveReset" ? "#7C3AED" : "#EF4444",
+              }}>Konfirmasi</button>
               <button className="btn" onClick={() => { setShowAdmin(false); setPwInput(""); setPwError(false); }} style={{
                 flex:1, padding:"10px", borderRadius:12,
                 background:"#F3F4F6", color:"#374151", fontWeight:700, fontSize:14,
@@ -513,8 +573,9 @@ export default function EmotionWheel() {
         const allEntries = Object.values(history).filter(h => h.year === filterYear && (filterMonths.length === 0 || filterMonths.includes(h.month)));
         const sorted = allEntries.sort((a,b) => a.timestamp > b.timestamp ? 1 : -1);
 
+        const MONTH_SHORT = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
         const barData = sorted.map(h => ({
-          name: h.label,
+          name: `${MONTH_SHORT[h.month-1]} W${Math.ceil(new Date(h.timestamp).getDate()/7)}`,
           Bahagia: h.bahagia||0, Takut: h.takut||0, Dicintai: h.dicintai||0,
           Marah: h.marah||0, Sedih: h.sedih||0, Cemas: h.cemas||0,
           total: h.total||0,
@@ -598,7 +659,7 @@ export default function EmotionWheel() {
 
                 {/* BAR CHART */}
                 <div style={{ marginBottom:28 }}>
-                  <h3 style={{ fontSize:14, fontWeight:700, color:"#374151", margin:"0 0 12px" }}>📈 Tren Emosi per Minggu</h3>
+                  <h3 style={{ fontSize:14, fontWeight:700, color:"#374151", margin:"0 0 12px" }}>📈 Tren Emosi per Periode</h3>
                   <ResponsiveContainer width="100%" height={220}>
                     <BarChart data={barData} margin={{ top:5, right:10, left:-10, bottom:5 }}>
                       <XAxis dataKey="name" tick={{ fontSize:10 }} />
@@ -628,7 +689,7 @@ export default function EmotionWheel() {
 
                 {/* TOTAL RESPONDEN PER MINGGU */}
                 <div style={{ marginTop:24 }}>
-                  <h3 style={{ fontSize:14, fontWeight:700, color:"#374151", margin:"0 0 12px" }}>👥 Total Responden per Minggu</h3>
+                  <h3 style={{ fontSize:14, fontWeight:700, color:"#374151", margin:"0 0 12px" }}>👥 Responden per Periode</h3>
                   <ResponsiveContainer width="100%" height={160}>
                     <BarChart data={barData} margin={{ top:5, right:10, left:-10, bottom:5 }}>
                       <XAxis dataKey="name" tick={{ fontSize:10 }} />
