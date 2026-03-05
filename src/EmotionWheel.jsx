@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, onValue, set, get } from "firebase/database";
+import { getDatabase, ref, onValue, set, get, push } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBPOJDDStveJFvI67HPUiKeJxFjikRGzVI",
@@ -22,7 +23,7 @@ const EMOTIONS = {
   bahagia: {
     label: "BAHAGIA", color: "#E8544A", lightColor: "#F5A89A",
     angle: -150, span: 60, emoji: "😄",
-    sub: ["Bersemangat", "Optimis", "Percaya Diri", "Gembira", "Bersyukur"]
+    sub: ["Semangat", "Optimis", "Percaya Diri", "Gembira", "Bersyukur"]
   },
   takut: {
     label: "TAKUT", color: "#E8A838", lightColor: "#F5D08A",
@@ -54,6 +55,9 @@ const EMOTIONS = {
 const EMOTION_KEYS = Object.keys(EMOTIONS);
 const INNER_R = 80, MID_R = 170, OUTER_R = 270, CX = 300, CY = 300;
 const ADMIN_PASSWORD = "admin123";
+const MONTHS = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+const YEARS = [2026, 2027, 2028, 2029, 2030];
+const HISTORY_PATH = "history";
 const DOT_COLORS = ["#FF6B6B","#FFD93D","#6BCB77","#4D96FF","#C77DFF","#FF9F43","#F368E0","#00D2D3"];
 
 // ============================================================
@@ -108,6 +112,25 @@ async function saveVotes(votes) {
   } catch (e) { console.error(e); }
 }
 
+async function saveSnapshot(votes) {
+  try {
+    const now = new Date();
+    const key = `${now.getFullYear()}_${String(now.getMonth()+1).padStart(2,'0')}_W${Math.ceil(now.getDate()/7)}`;
+    const summary = {};
+    Object.keys(EMOTIONS).forEach(ek => {
+      summary[ek] = Object.entries(votes)
+        .filter(([k]) => k.startsWith(ek+":"))
+        .reduce((s,[,arr]) => s + arr.length, 0);
+    });
+    summary.total = Object.values(votes).reduce((s,arr) => s+arr.length, 0);
+    summary.timestamp = now.toISOString();
+    summary.label = `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+    summary.month = now.getMonth()+1;
+    summary.year = now.getFullYear();
+    await set(ref(db, `${HISTORY_PATH}/${key}`), summary);
+  } catch(e) { console.error(e); }
+}
+
 // ============================================================
 // KOMPONEN UTAMA
 // ============================================================
@@ -130,6 +153,10 @@ export default function EmotionWheel() {
   const [pwError, setPwError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [history, setHistory] = useState({});
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+  const [filterMonths, setFilterMonths] = useState([]);
+  const [showDashboard, setShowDashboard] = useState(false);
 
   useEffect(() => {
     const votesRef = ref(db, DB_PATH);
@@ -138,7 +165,11 @@ export default function EmotionWheel() {
       setVotes(data);
       setLoading(false);
     });
-    return () => unsubscribe();
+    const histRef = ref(db, HISTORY_PATH);
+    const unsubHist = onValue(histRef, (snapshot) => {
+      setHistory(snapshot.exists() ? snapshot.val() : {});
+    });
+    return () => { unsubscribe(); unsubHist(); };
   }, []);
 
   function showToast(msg) {
@@ -177,6 +208,8 @@ export default function EmotionWheel() {
 
   async function handleReset() {
     if (pwInput === ADMIN_PASSWORD) {
+      const current = await loadVotes();
+      if (Object.keys(current).length > 0) await saveSnapshot(current);
       await saveVotes({});
       setVotes({});
       setMyVote(null);
@@ -184,7 +217,7 @@ export default function EmotionWheel() {
       setPwInput("");
       setShowAdmin(false);
       setPwError(false);
-      showToast("✅ Data berhasil direset!");
+      showToast("✅ Data direset & snapshot tersimpan!");
     } else {
       setPwError(true);
     }
@@ -229,6 +262,11 @@ export default function EmotionWheel() {
         <p style={{ color: "#b0a8c0", fontSize: 11, margin: "4px auto 0", maxWidth: 480, lineHeight: 1.5, fontStyle: "italic" }}>
           Data bersifat anonim — admin ataupun user tidak memiliki akses terhadap sumber data.
         </p>
+        <div style={{ marginTop: 10, padding: "8px 16px", borderRadius: 12, background: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.07)", border: "1px solid #E5E7EB", display: "inline-block" }}>
+          <p style={{ margin: 0, fontSize: 11, color: "#6B7280", lineHeight: 1.6 }}>
+            📚 <strong style={{ color: "#4F46E5" }}>Dasar Ilmiah:</strong> Spektrum emosi ini menggunakan kombinasi teori <strong>Paul Ekman</strong> (6 Basic Emotions, 1970) dan <strong>Gloria Willcox</strong> (Feelings Wheel, 1982), diadaptasi untuk konteks lingkungan kerja.
+          </p>
+        </div>
         <p style={{ color: "#a0a0a0", fontSize: 13, margin: "6px 0 0" }}>
           Total responden: <strong style={{ color: "#5B5B9E" }}>{totalVotes} pegawai</strong>
           {myVote && <span style={{ color: "#059669", marginLeft: 10 }}>• Kamu sudah memilih ✓</span>}
@@ -293,7 +331,8 @@ export default function EmotionWheel() {
                     const sA = startA + i * subSpan;
                     const eA = sA + subSpan;
                     const tp = midPoint(CX, CY, (MID_R + OUTER_R) / 2, sA, eA);
-                    const rot = tp.angle > 90 && tp.angle < 270 ? tp.angle + 180 : tp.angle;
+                    const norm = ((tp.angle % 360) + 360) % 360;
+                    const rot = (norm > 90 && norm < 270) ? tp.angle + 180 : tp.angle;
                     const voteKey = `${key}:${sub}`;
                     const isMyChoice = myVote === voteKey;
 
@@ -350,7 +389,8 @@ export default function EmotionWheel() {
                     const r = (INNER_R + MID_R) / 2;
                     const rad = ((mid - 90) * Math.PI) / 180;
                     const tx = CX + r * Math.cos(rad), ty = CY + r * Math.sin(rad);
-                    const rot = mid > 90 && mid < 270 ? mid + 180 : mid;
+                    const normMid = ((mid % 360) + 360) % 360;
+                    const rot = (normMid > 90 && normMid < 270) ? mid + 180 : mid;
                     return (
                       <g style={{ pointerEvents:"none" }}>
                         <text x={tx} y={ty - 14} textAnchor="middle" dominantBaseline="middle"
@@ -455,6 +495,154 @@ export default function EmotionWheel() {
           </div>
         </div>
       )}
+
+      {/* DASHBOARD TOGGLE BUTTON */}
+      <button className="btn" onClick={() => setShowDashboard(d => !d)} style={{
+        marginTop: 12, padding: "10px 22px", borderRadius: 24,
+        background: showDashboard ? "#4F46E5" : "white",
+        color: showDashboard ? "white" : "#4F46E5",
+        fontWeight: 700, fontSize: 13,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        border: "2px solid #4F46E5",
+      }}>
+        📊 {showDashboard ? "Sembunyikan Dashboard" : "Lihat Dashboard Perkembangan"}
+      </button>
+
+      {/* DASHBOARD */}
+      {showDashboard && (() => {
+        const allEntries = Object.values(history).filter(h => h.year === filterYear && (filterMonths.length === 0 || filterMonths.includes(h.month)));
+        const sorted = allEntries.sort((a,b) => a.timestamp > b.timestamp ? 1 : -1);
+
+        const barData = sorted.map(h => ({
+          name: h.label,
+          Bahagia: h.bahagia||0, Takut: h.takut||0, Dicintai: h.dicintai||0,
+          Marah: h.marah||0, Sedih: h.sedih||0, Cemas: h.cemas||0,
+          total: h.total||0,
+        }));
+
+        const pieData = Object.keys(EMOTIONS).map(key => ({
+          name: EMOTIONS[key].label,
+          value: allEntries.reduce((s,h) => s+(h[key]||0), 0),
+          color: EMOTIONS[key].color,
+        })).filter(d => d.value > 0);
+
+        const totalAll = allEntries.reduce((s,h) => s+(h.total||0), 0);
+        const dominant = pieData.length > 0 ? pieData.reduce((a,b) => a.value>b.value?a:b) : null;
+
+        const BAR_COLORS = { Bahagia:"#E8544A", Takut:"#E8A838", Dicintai:"#E88FAA", Marah:"#5B5B9E", Sedih:"#7BAED4", Cemas:"#88B888" };
+
+        return (
+          <div style={{ width:"min(720px,95vw)", marginTop:20, background:"white", borderRadius:20, padding:"24px", boxShadow:"0 8px 32px rgba(0,0,0,0.1)" }}>
+            <h2 style={{ fontFamily:"'Baloo 2',cursive", color:"#3d2c5e", margin:"0 0 20px", fontSize:20 }}>📊 Dashboard Perkembangan Emosi</h2>
+
+            {/* FILTERS */}
+            <div style={{ marginBottom:20 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap", marginBottom:12 }}>
+                <span style={{ fontWeight:700, color:"#374151", fontSize:13 }}>Tahun:</span>
+                {YEARS.map(y => (
+                  <button key={y} className="btn" onClick={() => setFilterYear(y)} style={{
+                    padding:"6px 14px", borderRadius:20, fontSize:13, fontWeight:700,
+                    background: filterYear===y ? "#4F46E5" : "#F3F4F6",
+                    color: filterYear===y ? "white" : "#374151",
+                    border: "none",
+                  }}>{y}</button>
+                ))}
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                <span style={{ fontWeight:700, color:"#374151", fontSize:13 }}>Bulan:</span>
+                <button className="btn" onClick={() => setFilterMonths([])} style={{
+                  padding:"5px 12px", borderRadius:20, fontSize:12, fontWeight:700,
+                  background: filterMonths.length===0 ? "#4F46E5" : "#F3F4F6",
+                  color: filterMonths.length===0 ? "white" : "#374151", border:"none",
+                }}>Semua</button>
+                {MONTHS.map((m,i) => (
+                  <button key={m} className="btn" onClick={() => {
+                    setFilterMonths(prev => prev.includes(i+1) ? prev.filter(x=>x!==i+1) : [...prev, i+1]);
+                  }} style={{
+                    padding:"5px 12px", borderRadius:20, fontSize:12, fontWeight:700,
+                    background: filterMonths.includes(i+1) ? "#4F46E5" : "#F3F4F6",
+                    color: filterMonths.includes(i+1) ? "white" : "#374151", border:"none",
+                  }}>{m.slice(0,3)}</button>
+                ))}
+              </div>
+            </div>
+
+            {allEntries.length === 0 ? (
+              <div style={{ textAlign:"center", padding:"40px 0", color:"#9CA3AF" }}>
+                <div style={{ fontSize:40 }}>📭</div>
+                <p style={{ fontWeight:600, marginTop:8 }}>Belum ada data untuk periode ini.</p>
+                <p style={{ fontSize:13 }}>Data tersimpan otomatis setiap kali admin melakukan reset mingguan.</p>
+              </div>
+            ) : (
+              <>
+                {/* SUMMARY CARDS */}
+                <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom:24 }}>
+                  <div style={{ flex:1, minWidth:140, background:"#EEF2FF", borderRadius:14, padding:"14px 18px" }}>
+                    <div style={{ fontSize:12, color:"#6B7280", fontWeight:600 }}>Total Responden</div>
+                    <div style={{ fontSize:28, fontWeight:900, color:"#4F46E5" }}>{totalAll}</div>
+                    <div style={{ fontSize:11, color:"#9CA3AF" }}>dalam periode ini</div>
+                  </div>
+                  <div style={{ flex:1, minWidth:140, background:"#FEF3C7", borderRadius:14, padding:"14px 18px" }}>
+                    <div style={{ fontSize:12, color:"#6B7280", fontWeight:600 }}>Jumlah Minggu</div>
+                    <div style={{ fontSize:28, fontWeight:900, color:"#D97706" }}>{allEntries.length}</div>
+                    <div style={{ fontSize:11, color:"#9CA3AF" }}>periode tercatat</div>
+                  </div>
+                  {dominant && (
+                    <div style={{ flex:1, minWidth:140, background:"#F0FDF4", borderRadius:14, padding:"14px 18px" }}>
+                      <div style={{ fontSize:12, color:"#6B7280", fontWeight:600 }}>Emosi Dominan</div>
+                      <div style={{ fontSize:22, fontWeight:900, color:"#059669" }}>{dominant.name}</div>
+                      <div style={{ fontSize:11, color:"#9CA3AF" }}>{dominant.value} total pemilih</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* BAR CHART */}
+                <div style={{ marginBottom:28 }}>
+                  <h3 style={{ fontSize:14, fontWeight:700, color:"#374151", margin:"0 0 12px" }}>📈 Tren Emosi per Minggu</h3>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={barData} margin={{ top:5, right:10, left:-10, bottom:5 }}>
+                      <XAxis dataKey="name" tick={{ fontSize:10 }} />
+                      <YAxis tick={{ fontSize:10 }} />
+                      <Tooltip />
+                      <Legend wrapperStyle={{ fontSize:11 }} />
+                      {Object.keys(BAR_COLORS).map(k => (
+                        <Bar key={k} dataKey={k} stackId="a" fill={BAR_COLORS[k]} />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* PIE CHART */}
+                <div>
+                  <h3 style={{ fontSize:14, fontWeight:700, color:"#374151", margin:"0 0 12px" }}>🥧 Proporsi Emosi</h3>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({name,percent}) => `${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+                        {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip />
+                      <Legend wrapperStyle={{ fontSize:11 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* TOTAL RESPONDEN PER MINGGU */}
+                <div style={{ marginTop:24 }}>
+                  <h3 style={{ fontSize:14, fontWeight:700, color:"#374151", margin:"0 0 12px" }}>👥 Total Responden per Minggu</h3>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <BarChart data={barData} margin={{ top:5, right:10, left:-10, bottom:5 }}>
+                      <XAxis dataKey="name" tick={{ fontSize:10 }} />
+                      <YAxis tick={{ fontSize:10 }} />
+                      <Tooltip />
+                      <Bar dataKey="total" fill="#4F46E5" radius={[4,4,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {/* TOAST */}
       {toast && (
